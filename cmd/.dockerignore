@@ -1,15 +1,17 @@
-# Ignore the Git folder
+# Ignore Git files
 .git
+.gitignore
 
-# Ignore logs
+# Ignore environment files
+.env
+
+
+# Ignore build outputs
+/bin/
+*.out
+*.exe
+
+# Ignore temporary files
 *.log
-*.bak
-*.swp
-
-# Ignore local environment files (if needed)
-.env.local
-
-# Ignore Docker-specific files (not needed in the container)
-.dockerignore
-docker-compose.yml
+*.tmp
 
