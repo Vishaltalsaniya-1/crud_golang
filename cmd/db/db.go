@@ -57,10 +57,8 @@ func createTables() {
 		id SERIAL PRIMARY KEY,
 		name VARCHAR(255) NOT NULL,
 		email VARCHAR(255) UNIQUE NOT NULL,
-		password VARCHAR(255) NOT NULL,
-		subjects TEXT[] DEFAULT '{}',
-		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-		updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		subjects TEXT[] DEFAULT '{}'
+		
 	);`
 
 	_, err := db.Exec(query)
