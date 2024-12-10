@@ -17,12 +17,14 @@ func derefString(ptr *string) string {
 }
 
 // CreateUser delegates the user creation to the service layer
-func CreateUser(req request.CreateUserRequest) (model.User, error) {
+func CreateUser(req request.CreateUserRequest,flag string) (model.User, error) {
+	if flag != "true"{
+		log.Println("MongoDB called")
+	}
 	// Directly assign fields from CreateUserRequest (no derefString needed)
 	user := model.User{
 		Name:     req.Name,
 		Email:    req.Email,
-		Password: req.Password, // You can hash the password here
 		Subjects: req.Subjects,
 	}
 
@@ -34,12 +36,14 @@ func CreateUser(req request.CreateUserRequest) (model.User, error) {
 }
 
 // UpdateUser delegates the user update to the service layer
-func UpdateUser(id int, req request.UpdateUserRequest) (model.User, error) {
+func UpdateUser(id int, req request.UpdateUserRequest,flag string) (model.User, error) {
+	if flag == "true" {
+		log.Println("Mongodb called")
+	}
 	// Use derefString to safely handle nil pointers in UpdateUserRequest
 	user := model.User{
 		Name:     derefString(req.Name),
 		Email:    derefString(req.Email),
-		Password: derefString(req.Password), // You can hash the password here
 		Subjects: req.Subjects,
 	}
 
@@ -51,7 +55,10 @@ func UpdateUser(id int, req request.UpdateUserRequest) (model.User, error) {
 }
 
 // Other unchanged functions
-func DeleteUser(id int) error {
+func DeleteUser(id int, flag string) error {
+	if flag == "true" {
+		log.Println("Mongodb called")
+	}
 	err := service.DeleteUser(id)
 	if err != nil {
 		return fmt.Errorf("manager: failed to delete user: %v", err)
@@ -59,21 +66,27 @@ func DeleteUser(id int) error {
 	return nil
 }
 
-func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby string) ([]model.User,int,int, error) {
+func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby string,flag string) ([]model.User, int, int, error) {
+	if flag == "true" {
+		log.Println("Mongodb called")
+	}
 	// Log for debugging
 	log.Println("PageSize ----->", pageSize)
 	log.Println("PageNo-------->", pageNo)
 	log.Println("Subject-------->", subject)
 
 	// Call service with pagination arguments0
-	users,lastPage, totalDocuments, err := service.GetAllUsers(pageSize, pageNo, subject,order, orderby)
+	users, lastPage, totalDocuments, err := service.GetAllUsers(pageSize, pageNo, subject, order, orderby)
 	if err != nil {
-		return nil,0,0, fmt.Errorf("manager: failed to fetch users: %v", err)
+		return nil, 0, 0, fmt.Errorf("manager: failed to fetch users: %v", err)
 	}
-	return users,lastPage, totalDocuments,  nil
+	return users, lastPage, totalDocuments, nil
 }
 
-func GetUserByID(id int) (model.User, error) {
+func GetUserByID(id int, flag string) (model.User, error) {
+	if flag == "true" {
+		log.Println("Mongodb called")
+	}
 	user, err := service.GetUserByID(id)
 	if err != nil {
 		return model.User{}, fmt.Errorf("manager: failed to fetch user: %v", err)

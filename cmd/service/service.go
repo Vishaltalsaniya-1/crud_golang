@@ -27,9 +27,9 @@ func CreateUser(user model.User) (model.User, error) {
 
 	// Insert the user into the database
 	sqlStatement := `
-        INSERT INTO users (name, email, password, created_at, updated_at, subjects)
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING id, name, email, created_at, updated_at, subjects`
+        INSERT INTO users (name, email, subjects)
+        VALUES ($1, $2, $3)
+        RETURNING id, name, email, subjects`
 
 	var createdUser model.User
 	var subjects []string // Temporary slice to scan subjects
@@ -38,7 +38,6 @@ func CreateUser(user model.User) (model.User, error) {
 		sqlStatement,
 		user.Name,
 		user.Email,
-		user.Password,
 		time.Now(),
 		time.Now(),
 		pq.Array(user.Subjects), // Use pq.Array for the slice
@@ -46,8 +45,6 @@ func CreateUser(user model.User) (model.User, error) {
 		&createdUser.Id,
 		&createdUser.Name,
 		&createdUser.Email,
-		&createdUser.CreatedAt,
-		&createdUser.UpdatedAt,
 		pq.Array(&subjects), // Use pq.Array to decode array
 	)
 	createdUser.Subjects = subjects
@@ -64,16 +61,16 @@ func UpdateUser(user model.User, id int) (model.User, error) {
 	// Correct the SQL statement
 	sqlStatement := `
         UPDATE users 
-        SET name = $1, email = $2, password = $3, updated_at = CURRENT_TIMESTAMP, subjects = $4
-        WHERE id = $5
-        RETURNING id, name, email, updated_at, subjects`
+        SET name = $1, email = $2, subjects = $3
+        WHERE id = $4
+        RETURNING id, name, email, subjects`
 
 	var updatedUser model.User
 	var subjects pq.StringArray // This allows handling of NULL values correctly
 
 	// Pass the subjects array correctly using pq.Array
-	err := db.QueryRow(sqlStatement, user.Name, user.Email, user.Password, pq.Array(user.Subjects), id).Scan(
-		&updatedUser.Id, &updatedUser.Name, &updatedUser.Email, &updatedUser.UpdatedAt, &subjects)
+	err := db.QueryRow(sqlStatement, user.Name, user.Email, pq.Array(user.Subjects), id).Scan(
+		&updatedUser.Id, &updatedUser.Name, &updatedUser.Email, &subjects)
 
 	if err != nil {
 		return model.User{}, fmt.Errorf("service: failed to update user: %v", err)
@@ -112,21 +109,21 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 	// Calculate offset for pagination
 	offset := (pageNo - 1) * pageSize
 
-	validColumns := map[string]bool{"id": true, "name": true, "email": true, "created_at": true, "updated_at": true}
+	validColumns := map[string]bool{"id": true, "name": true, "email": true}
 	if !validColumns[orderby] {
-		orderby = "created_at" // Default column
+		orderby = "id" // Default column
 	}
 	if order != "ASC" && order != "DESC" {
 		order = "DESC" // Default sorting order
 	}
+
 	// Query to get the latest user first, followed by paginated users
 	sqlStatement := fmt.Sprintf(`
-	SELECT id, name, email, created_at, updated_at, subjects
+	SELECT id, name, email, subjects
 	FROM users
 	WHERE $1 = ANY(subjects) OR $1 = ''
 	ORDER BY %s %s
 	LIMIT $2 OFFSET $3`, orderby, order)
-
 	rows, err := db.Query(sqlStatement, subject, pageSize, offset)
 	if err != nil {
 		return nil, 0, 0, fmt.Errorf("service: failed to fetch users: %v", err)
@@ -138,7 +135,7 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 		var user model.User
 		var subjects []string
 
-		err := rows.Scan(&user.Id, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt, pq.Array(&subjects))
+		err := rows.Scan(&user.Id, &user.Name, &user.Email, pq.Array(&subjects))
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("service: failed to scan user: %v", err)
 		}
@@ -177,12 +174,12 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 func GetUserByID(id int) (model.User, error) {
 	db := db.GetDB()
 
-	sqlStatement := `SELECT id, name, email, created_at, updated_at, subjects FROM users WHERE id = $1`
+	sqlStatement := `SELECT id, name, email, subjects FROM users WHERE id = $1`
 
 	var user model.User
 	var subjects []string
 	err := db.QueryRow(sqlStatement, id).Scan(
-		&user.Id, &user.Name, &user.Email, &user.CreatedAt, &user.UpdatedAt, pq.Array(&subjects))
+		&user.Id, &user.Name, &user.Email, pq.Array(&subjects))
 
 	if err != nil {
 		return model.User{}, fmt.Errorf("service: user not found: %v", err)
