@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: . # or ./fitness-api depending on where your Dockerfile is
+      dockerfile: Dockerfile
+    container_name: fitness-api
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./.env # Ensure this path is correct
+    depends_on:
+      - db
+
+  db: 
+    image: postgres:14
+    container_name: fitness-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fitness
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+volumes:
+  db-data:
