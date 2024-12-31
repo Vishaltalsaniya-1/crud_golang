@@ -1,18 +1,6 @@
 version: '3.8'
 
 services:
-  app:
-    build:
-      context: . # or ./fitness-api depending on where your Dockerfile is
-      dockerfile: Dockerfile
-    container_name: fitness-api
-    ports:
-      - "8081:8081"
-    env_file:
-      - ./.env # Ensure this path is correct
-    depends_on:
-      - db
-
   db: 
     image: postgres:14
     container_name: fitness-db
@@ -25,6 +13,28 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
+    networks:
+      - fitness-network
+
+  mongo:
+    image: mongo:latest
+    container_name: fitness-mongo
+    restart: always
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: root
+    #   MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    #   MONGO_INITDB_DATABASE: fitness
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - fitness-network
 
 volumes:
   db-data:
+  mongo-data:
+
+networks:
+  fitness-network:
+    driver: bridge
