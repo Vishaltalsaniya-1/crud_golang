@@ -5,7 +5,7 @@ services:
     image: postgres:latest
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: 68468
       POSTGRES_DB: fitness
     ports:
       - "5432:5432"
