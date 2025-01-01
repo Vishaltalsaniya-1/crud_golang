@@ -1,40 +1,30 @@
 version: '3.8'
 
 services:
-  db: 
-    image: postgres:14
-    container_name: fitness-db
-    restart: always
+  postgres:
+    image: postgres:latest
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: fitness
+      POSTGRES_DB: root
     ports:
       - "5432:5432"
     volumes:
-      - db-data:/var/lib/postgresql/data
-    networks:
-      - fitness-network
+      - postgres_data:/var/lib/postgresql/data
 
-  mongo:
+  mongodb:
     image: mongo:latest
-    container_name: fitness-mongo
-    restart: always
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    # Uncomment and configure the environment variables if needed
     # environment:
     #   MONGO_INITDB_ROOT_USERNAME: root
     #   MONGO_INITDB_ROOT_PASSWORD: rootpassword
     #   MONGO_INITDB_DATABASE: fitness
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    networks:
-      - fitness-network
 
 volumes:
-  db-data:
-  mongo-data:
-
-networks:
-  fitness-network:
-    driver: bridge
+  postgres_data:
+  mongodb_data:
