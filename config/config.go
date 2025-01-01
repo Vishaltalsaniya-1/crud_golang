@@ -8,7 +8,7 @@ import (
 
 // PostgresConfig holds the configuration values for PostgreSQL
 type Flag struct {
-	FlagValue string `env:"FLAG_VALUE" envDefault:"TRUE"`
+	FlagValue string `env:"FLAG_VALUE" envDefault:"FALSE"`
 }
 
 func InitConfig() (*Flag, error) {

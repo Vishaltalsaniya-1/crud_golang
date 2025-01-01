@@ -47,6 +47,10 @@ func InitPostgresDB() error {
 	if err != nil {
 		return err
 	}
+	err = ExistsTable(postgresDB)
+	if err != nil {
+		return fmt.Errorf("failed to ensure table exists: %v", err)
+	}
 
 	fmt.Println("Successfully connected to PostgreSQL")
 	return nil
@@ -92,4 +96,24 @@ func GetMongoDB() (*mongo.Client, error) {
 // GetPostgresDB returns the PostgreSQL connection
 func GetPostgresDB() *sql.DB {
 	return postgresDB
+}
+
+func ExistsTable(db *sql.DB) error {
+
+	createTableSQL := `
+	CREATE TABLE IF NOT EXISTS users (
+		id SERIAL PRIMARY KEY,
+		name VARCHAR(100),
+		email VARCHAR(100) UNIQUE NOT NULL,
+		subjects TEXT[]
+	);
+	`
+
+	_, err := db.Exec(createTableSQL)
+	if err != nil {
+		log.Printf("Error user table%v\n", err)
+		return fmt.Errorf("faile the create table:%v", err)
+
+	}
+	return nil
 }
