@@ -26,7 +26,7 @@ func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, er
 
 	// Validate the incoming request data
 	if req.Name == "" || req.Email == "" {
-		return model.User{}, fmt.Errorf("manager: name and email are required fields")
+		return model.User{}, fmt.Errorf(" name and email are required fields")
 	}
 
 	// Map the request fields to the User model
@@ -40,8 +40,8 @@ func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, er
 	createdUser, err := service.CreateUser(user)
 	if err != nil {
 		// Handle specific errors if needed
-		log.Printf("manager: failed to create user: %v\n", err)
-		return model.User{}, fmt.Errorf("manager: failed to create user: %w", err)
+		log.Printf(" failed to create user: %v\n", err)
+		return model.User{}, fmt.Errorf(" failed to create user: %w", err)
 	}
 
 	return createdUser, nil
@@ -52,7 +52,7 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 	// log.Printf("Updating user: ID: %d, Name: %v, Email: %v, Subjects: %v", id, req.Name, req.Email, req.Subjects)
 
 	if req.Name == nil || req.Email == nil || *req.Name == "" || *req.Email == "" {
-		return model.User{}, fmt.Errorf("manager: name and email cannot be empty")
+		return model.User{}, fmt.Errorf(" name and email cannot be empty")
 	}
 
 	user := model.User{
@@ -64,7 +64,7 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 	// Pass user, ID, and flag to the service layer
 	updatedUser, err := service.UpdateUser(user, id)
 	if err != nil {
-		return model.User{}, fmt.Errorf("manager: failed to update user: %v", err)
+		return model.User{}, fmt.Errorf(" failed to update user: %v", err)
 	}
 
 	return updatedUser, nil
@@ -74,7 +74,7 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 func (um *UserManager) DeleteUser(id string) error {
 	err := service.DeleteUser(id)
 	if err != nil {
-		return fmt.Errorf("manager: failed to delete user: %v", err)
+		return fmt.Errorf(" failed to delete user: %v", err)
 	}
 
 	return nil
@@ -86,7 +86,7 @@ func (um *UserManager) GetAllUsers(pageSize int, pageNo int, subject string, ord
 	// Call service with pagination arguments
 	users, lastPage, totalDocuments, err := service.GetAllUsers(pageSize, pageNo, subject, order, orderby)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("manager: failed to fetch users: %v", err)
+		return nil, 0, 0, fmt.Errorf(" failed to fetch users: %v", err)
 	}
 	return users, lastPage, totalDocuments, nil
 }
@@ -96,7 +96,7 @@ func (um *UserManager) GetAllUsers(pageSize int, pageNo int, subject string, ord
 func (um *UserManager) GetUserByID(id string) (model.User, error) {
 	user, err := service.GetUserByID(id) // Updated method call
 	if err != nil {
-		return model.User{}, fmt.Errorf("manager: failed to fetch user: %v", err)
+		return model.User{}, fmt.Errorf(" failed to fetch user: %v", err)
 	}
 	return user, nil
 }
