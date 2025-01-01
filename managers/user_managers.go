@@ -47,14 +47,14 @@ func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, er
 	return createdUser, nil
 }
 
-// UpdateUser handles the update operation and passes the flag
-func (um *UserManager) UpdateUser(id int, req request.UpdateUserRequest, flag string) (model.User, error) {
-	if flag == "true" {
-		log.Println("MongoDB called")
-	} else {
-		log.Println("PostgreSQL called")
+func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (model.User, error) {
+
+	// log.Printf("Updating user: ID: %d, Name: %v, Email: %v, Subjects: %v", id, req.Name, req.Email, req.Subjects)
+
+	if req.Name == nil || req.Email == nil || *req.Name == "" || *req.Email == "" {
+		return model.User{}, fmt.Errorf("manager: name and email cannot be empty")
 	}
-	// Map request fields to the User model
+
 	user := model.User{
 		Name:     derefString(req.Name),
 		Email:    derefString(req.Email),
@@ -62,7 +62,7 @@ func (um *UserManager) UpdateUser(id int, req request.UpdateUserRequest, flag st
 	}
 
 	// Pass user, ID, and flag to the service layer
-	updatedUser, err := service.UpdateUser(user, id, flag)
+	updatedUser, err := service.UpdateUser(user, id)
 	if err != nil {
 		return model.User{}, fmt.Errorf("manager: failed to update user: %v", err)
 	}
@@ -71,11 +71,8 @@ func (um *UserManager) UpdateUser(id int, req request.UpdateUserRequest, flag st
 }
 
 // DeleteUser handles the deletion of a user
-func (um *UserManager) DeleteUser(id int, flag string) error {
-	if flag == "true" {
-		log.Println("MongoDB called")
-	}
-	err := service.DeleteUser(id, flag)
+func (um *UserManager) DeleteUser(id string) error {
+	err := service.DeleteUser(id)
 	if err != nil {
 		return fmt.Errorf("manager: failed to delete user: %v", err)
 	}
@@ -95,11 +92,9 @@ func (um *UserManager) GetAllUsers(pageSize int, pageNo int, subject string, ord
 }
 
 // GetUserByID retrieves a user by ID
-func (um *UserManager) GetUserByID(id int, flag string) (model.User, error) {
-	if flag == "true" {
-		log.Println("MongoDB called")
-	}
-	user, err := service.GetUserByID(id, flag)
+
+func (um *UserManager) GetUserByID(id string) (model.User, error) {
+	user, err := service.GetUserByID(id) // Updated method call
 	if err != nil {
 		return model.User{}, fmt.Errorf("manager: failed to fetch user: %v", err)
 	}

@@ -28,7 +28,7 @@ func (uc *UserController) CreateUser(c echo.Context) error {
 	// Bind request body to CreateUserRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
-	} 
+	}
 
 	log.Println("REQ-------->", req)
 	validate := validator.New()
@@ -47,55 +47,29 @@ func (uc *UserController) CreateUser(c echo.Context) error {
 }
 
 func (uc *UserController) UpdateUser(c echo.Context) error {
-	// Parse user ID from the request URL
-	idParam := c.Param("id")
-	log.Println("ID from URL:", idParam)
-	id, err := strconv.Atoi(idParam)
-	if err != nil || id <= 0 {
-		log.Println("Invalid ID:", err)
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid user ID"})
-	}
-	log.Println("Converted ID:", id)
+	id := c.Param("id")
 
 	var req request.UpdateUserRequest
 	if err := c.Bind(&req); err != nil {
-		log.Println("Request body error:", err) // Log error details
+		log.Printf("Failed to bind request: %v", err)
+
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request body"})
 	}
 
-	if req.Flag == "" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Flag is required and should be 'true' for MongoDB or 'false' for PostgreSQL"})
-	}
-
-	// Call manager to perform the update
-	updatedUser, err := uc.manager.UpdateUser(id, req, req.Flag)
+	updatedUser, err := uc.manager.UpdateUser(id, req)
 	if err != nil {
-		log.Println("Update user error:", err) // Log error details
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
-	// Return the updated user
 	return c.JSON(http.StatusOK, updatedUser)
 }
 
-// DeleteUser handles user deletion
 func (uc *UserController) DeleteUser(c echo.Context) error {
-	// Get the flag value from query parameters
-	flag := c.QueryParam("flag")
 
-	// Validate the flag value
-	if flag != "true" && flag != "false" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request"})
-	}
-
-	// Get the user ID from the URL parameters
-	id, err := strconv.Atoi(c.Param("id"))
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID format"})
-	}
+	id := c.Param("id")
 
 	// Call the manager's DeleteUser method
-	err = uc.manager.DeleteUser(id, flag)
+	err := uc.manager.DeleteUser(id)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
@@ -104,7 +78,6 @@ func (uc *UserController) DeleteUser(c echo.Context) error {
 	return c.JSON(http.StatusOK, map[string]string{"message": "User deleted successfully"})
 }
 
-// GetAllUsers retrieves all users with pagination and filtering options
 func (uc *UserController) GetAllUsers(c echo.Context) error {
 
 	pageSize := c.QueryParam("per_page")
@@ -137,20 +110,10 @@ func (uc *UserController) GetAllUsers(c echo.Context) error {
 	})
 }
 
-// GetUserByID retrieves a user by ID
 func (uc *UserController) GetUserByID(c echo.Context) error {
-	id, err := strconv.Atoi(c.Param("id"))
+	id := c.Param("id")
 
-	flag := c.QueryParam("flag")
-	if flag != "true" && flag != "false" {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request "})
-	}
-
-	if err != nil {
-		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid ID format"})
-	}
-
-	user, err := uc.manager.GetUserByID(id, flag)
+	user, err := uc.manager.GetUserByID(id)
 	if err != nil {
 		return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 	}
