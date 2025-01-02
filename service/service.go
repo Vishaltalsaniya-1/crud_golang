@@ -46,7 +46,6 @@ func CreateUser(user model.User) (model.User, error) {
 		// Insert into MongoDB
 		_, err = mongoCollection.InsertOne(context.Background(), mongoUser)
 		if err != nil {
-
 			return model.User{}, fmt.Errorf(" failed to create user in MongoDB: %v", err)
 		}
 
@@ -61,16 +60,10 @@ func CreateUser(user model.User) (model.User, error) {
 	// Check if the user already exists by email or name
 	var existingUser model.User
 	err = postgresDB.QueryRow("SELECT id FROM users WHERE email = $1 OR name = $2 LIMIT 1", user.Email, user.Name).Scan(&existingUser.Id)
-	if err != nil && err.Error() != "sql: no rows in result set" {
+	if err != nil {
 		//log.Printf(" Error checking user existence in PostgreSQL: %v\n", err)
 		return model.User{}, fmt.Errorf(" failed to check user existence: %v", err)
 	}
-
-	// If user exists, return an error
-	// if existingUser.Id != 0 {
-	// 	log.Println(" User with the provided email or name already exists in PostgreSQL")
-	// 	return model.User{}, fmt.Errorf("service: user with this email or name already exists")
-	// }
 
 	// Insert the new user into PostgreSQL
 	sqlStatement := `
@@ -135,13 +128,15 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 			context.Background(),
 			filter,
 			update,
-			&options.UpdateOptions{Upsert: &[]bool{true}[0]}, // Enable upsert
+			&options.UpdateOptions{Upsert: &[]bool{false}[0]},
 		)
 		if err != nil {
 			log.Printf(" MongoDB update error: %v\n", err)
 			return model.User{}, fmt.Errorf(" failed to update user in MongoDB: %v", err)
 		}
-
+		if result.MatchedCount == 0 {
+			return model.User{}, fmt.Errorf("no user found with the given ID: %s", id)
+		}
 		log.Printf(" Update result: %+v\n", result)
 
 		var updatedUser model.User
@@ -171,8 +166,11 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 		&updatedUser.Id, &updatedUser.Name, &updatedUser.Email, &subjects)
 
 	if err != nil {
-		return model.User{}, fmt.Errorf(" failed to update user in PostgreSQL: %v", err)
+		return model.User{}, err
 	}
+	// if err != nil {
+	// 	return model.User{}, fmt.Errorf(" failed to update user in PostgreSQL: %v", err)
+	// }
 
 	updatedUser.Subjects = subjects
 	return updatedUser, nil

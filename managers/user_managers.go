@@ -5,6 +5,7 @@ import (
 	"fitness-api/request"
 	"fitness-api/service"
 	"fmt"
+	"log"
 )
 
 type UserManager struct {
@@ -37,7 +38,8 @@ func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, er
 	// Call the service layer to create the user in the database
 	createdUser, err := service.CreateUser(user)
 	if err != nil {
-		return model.User{}, fmt.Errorf(" failed to create user %w", err)
+		log.Printf("error creating user: %v", err)
+		return model.User{}, fmt.Errorf("error unable to create user please try agan ")
 	}
 	return createdUser, nil
 }
@@ -46,9 +48,9 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 
 	// log.Printf("Updating user: ID: %d, Name: %v, Email: %v, Subjects: %v", id, req.Name, req.Email, req.Subjects)
 
-	if req.Name == nil || req.Email == nil || *req.Name == "" || *req.Email == "" {
-		return model.User{}, fmt.Errorf(" name and email cannot be empty")
-	}
+	// if req.Name == nil || req.Email == nil || *req.Name == "" || *req.Email == "" {
+	// 	return model.User{}, fmt.Errorf(" name and email cannot be empty")
+	// }
 
 	user := model.User{
 		Name:     derefString(req.Name),
@@ -56,7 +58,7 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 		Subjects: req.Subjects,
 	}
 
-	// Pass user, ID, and flag to the service layer
+	
 	updatedUser, err := service.UpdateUser(user, id)
 	if err != nil {
 		return model.User{}, fmt.Errorf(" failed to update user: %v", err)
