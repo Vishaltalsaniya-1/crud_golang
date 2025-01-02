@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"fitness-api/config"
 	"fitness-api/db"
 	"fitness-api/model"
@@ -20,7 +21,6 @@ func CreateUser(user model.User) (model.User, error) {
 	if err != nil {
 		log.Fatalf("Error loading flag config: %v", err)
 	}
-
 	if flagConfig.FlagValue == "TRUE" {
 		// MongoDB logic
 		log.Println(" MongoDB flag is true, processing user creation in MongoDB")
@@ -35,19 +35,18 @@ func CreateUser(user model.User) (model.User, error) {
 		var id = uuid.New().String()
 		// Generate a new unique _id
 		mongoUser := bson.M{
-			"_id":      id, // Using UUID for unique _id
+			"_id":      id,
 			"name":     user.Name,
 			"email":    user.Email,
 			"subjects": user.Subjects,
 		}
 
-		// Log the document to be inserted
 		log.Printf(" Inserting user into MongoDB: %+v\n", mongoUser)
 
 		// Insert into MongoDB
 		_, err = mongoCollection.InsertOne(context.Background(), mongoUser)
 		if err != nil {
-			log.Printf(" MongoDB insertion error: %v\n", err)
+
 			return model.User{}, fmt.Errorf(" failed to create user in MongoDB: %v", err)
 		}
 
@@ -63,7 +62,7 @@ func CreateUser(user model.User) (model.User, error) {
 	var existingUser model.User
 	err = postgresDB.QueryRow("SELECT id FROM users WHERE email = $1 OR name = $2 LIMIT 1", user.Email, user.Name).Scan(&existingUser.Id)
 	if err != nil && err.Error() != "sql: no rows in result set" {
-		log.Printf(" Error checking user existence in PostgreSQL: %v\n", err)
+		//log.Printf(" Error checking user existence in PostgreSQL: %v\n", err)
 		return model.User{}, fmt.Errorf(" failed to check user existence: %v", err)
 	}
 
@@ -94,9 +93,12 @@ func CreateUser(user model.User) (model.User, error) {
 		pq.Array(&subjects),
 	)
 	if err != nil {
-		log.Printf(" Error inserting user into PostgreSQL: %v\n", err)
-		return model.User{}, fmt.Errorf(" failed to create user in PostgreSQL: %v", err)
+		return model.User{}, err
 	}
+	// if err != nil {
+	// 	log.Printf(" Error inserting user into PostgreSQL: %v\n", err)
+	// 	return model.User{}, fmt.Errorf(" failed to create user in PostgreSQL: %v", err)
+	// }
 	createdUser.Subjects = subjects
 
 	log.Println(" User successfully created in PostgreSQL")
@@ -241,40 +243,76 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 			return nil, 0, 0, fmt.Errorf(" MongoDB is not initialized: %v", err)
 		}
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
-		// var id = uuid.New().String()
 
-		cursor, err := mongoCollection.Find(context.Background(), bson.M{})
+		filter := bson.M{}
+		if subject != "" {
+			filter["subjects"] = subject
+		}
 
+		totalDocuments, err := mongoCollection.CountDocuments(context.Background(), filter)
+		if err != nil {
+			log.Printf(" MongoDB count error: %v\n", err)
+			return nil, 0, 0, fmt.Errorf("failed to count users: %v", err)
+		}
+
+		if pageSize == -1 {
+			pageSize = int(totalDocuments)
+		}
+
+		skip := (pageNo - 1) * pageSize
+
+		sortOrder := 1
+		if order == "DESC" {
+			sortOrder = -1
+		}
+		sortField := orderby
+		if sortField == "" {
+			sortField = "id"
+		}
+
+		var opts *options.FindOptions
+		if pageSize == -1 {
+			opts = options.Find().
+				SetSort(bson.D{{Key: sortField, Value: sortOrder}}).
+				SetSkip(int64(skip))
+		} else {
+			opts = options.Find().
+				SetSort(bson.D{{Key: sortField, Value: sortOrder}}).
+				SetSkip(int64(skip)).
+				SetLimit(int64(pageSize))
+		}
+
+		cursor, err := mongoCollection.Find(context.Background(), filter, opts)
 		if err != nil {
 			log.Printf(" MongoDB find error: %v\n", err)
-			return nil, 0, 0, fmt.Errorf("failed to create user in MongoDB: %v", err)
+			return nil, 0, 0, fmt.Errorf("failed to fetch users: %v", err)
 		}
 		defer cursor.Close(context.Background())
 
+		// Decode results
 		var users []model.User
 		for cursor.Next(context.Background()) {
 			var user model.User
 			if err := cursor.Decode(&user); err != nil {
-				log.Printf("MongoDB decode error: %v\n", err)
+				log.Printf(" MongoDB decode error: %v\n", err)
 				return nil, 0, 0, fmt.Errorf("failed to decode user data: %v", err)
 			}
 			users = append(users, user)
 		}
 
 		if err := cursor.Err(); err != nil {
-			log.Printf("MongoDB cursor iteration error: %v\n", err)
-			return nil, 0, 0, fmt.Errorf(" error iterating MongoDB cursor: %v", err)
+			log.Printf(" MongoDB cursor iteration error: %v\n", err)
+			return nil, 0, 0, fmt.Errorf("error iterating MongoDB cursor: %v", err)
 		}
 
-		// If you need to return all users found
-		return users, 0, 0, nil
+		lastPage := (int(totalDocuments) + pageSize - 1) / pageSize
 
+		return users, lastPage, int(totalDocuments), nil
 	}
-	db := db.GetPostgresDB()
-	// Calculate offset for pagination
-	offset := (pageNo - 1) * pageSize
 
-	// Validate orderby and order fields to prevent SQL injection
+	db := db.GetPostgresDB()
+
+	// Validate `orderby` and `order` fields to prevent SQL injection
 	validColumns := map[string]bool{"id": true, "name": true, "email": true}
 	if !validColumns[orderby] {
 		orderby = "id" // Default column
@@ -282,17 +320,32 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 	if order != "ASC" && order != "DESC" {
 		order = "DESC" // Default sorting order
 	}
-	// Query to get the users with filtering and pagination
-	sqlStatement := fmt.Sprintf(`
-	SELECT id, name, email, subjects
-	FROM users
-	WHERE $1 = ANY(subjects) OR $1 = ''
-	ORDER BY %s %s
-	LIMIT $2 OFFSET $3`, orderby, order)
 
-	rows, err := db.Query(sqlStatement, subject, pageSize, offset)
+	var sqlStatement string
+	var rows *sql.Rows
+
+	if pageSize == -1 {
+		sqlStatement = fmt.Sprintf(`
+			SELECT id, name, email, subjects
+			FROM users
+			WHERE $1 = ANY(subjects) OR $1 = ''
+			ORDER BY %s %s`, orderby, order)
+
+		rows, err = db.Query(sqlStatement, subject)
+	} else {
+		offset := (pageNo - 1) * pageSize
+		sqlStatement = fmt.Sprintf(`
+			SELECT id, name, email, subjects
+			FROM users
+			WHERE $1 = ANY(subjects) OR $1 = ''
+			ORDER BY %s %s
+			LIMIT $2 OFFSET $3`, orderby, order)
+
+		rows, err = db.Query(sqlStatement, subject, pageSize, offset)
+	}
+
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf(" failed to fetch users: %v", err)
+		return nil, 0, 0, fmt.Errorf("failed to fetch users: %v", err)
 	}
 	defer rows.Close()
 
@@ -301,22 +354,18 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 		var user model.User
 		var subjects []string
 
-		// Scan user data and handle subjects as array
 		err := rows.Scan(&user.Id, &user.Name, &user.Email, pq.Array(&subjects))
 		if err != nil {
-			return nil, 0, 0, fmt.Errorf(" failed to scan user: %v", err)
+			return nil, 0, 0, fmt.Errorf("failed to scan user: %v", err)
 		}
-
 		user.Subjects = subjects
 		users = append(users, user)
 	}
 
-	// Check for row errors
 	if err := rows.Err(); err != nil {
-		return nil, 0, 0, fmt.Errorf(" failed to fetch users: %v", err)
+		return nil, 0, 0, fmt.Errorf("failed to fetch users: %v", err)
 	}
 
-	// Count the total number of users matching the filter
 	var totalDocuments int
 	countQuery := `
 		SELECT COUNT(*)
@@ -324,11 +373,13 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 		WHERE $1 = ANY(subjects) OR $1 = ''`
 	err = db.QueryRow(countQuery, subject).Scan(&totalDocuments)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf(" failed to count total users: %v", err)
+		return nil, 0, 0, fmt.Errorf("failed to count total users: %v", err)
 	}
 
-	// Calculate last page based on total documents and pageSize
-	lastPage := (totalDocuments + pageSize - 1) / pageSize
+	lastPage := 1
+	if pageSize != -1 {
+		lastPage = (totalDocuments + pageSize - 1) / pageSize
+	}
 
 	return users, lastPage, totalDocuments, nil
 }

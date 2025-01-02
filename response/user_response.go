@@ -13,6 +13,7 @@ func init() {
 
 // UserResponse defines the structure of the outgoing response for a user.
 type UserResponse struct {
+	
 	ID       string   `json:"id" bson:"id"`
 	Name     string   `json:"name" bson:"name" validate:"required"`
 	Email    string   `json:"email" bson:"email" validate:"required,email"`

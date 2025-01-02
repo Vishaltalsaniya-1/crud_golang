@@ -5,7 +5,6 @@ import (
 	"fitness-api/request"
 	"fitness-api/service"
 	"fmt"
-	"log"
 )
 
 type UserManager struct {
@@ -24,12 +23,11 @@ func derefString(ptr *string) string {
 
 func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, error) {
 
-	// Validate the incoming request data
-	if req.Name == "" || req.Email == "" {
-		return model.User{}, fmt.Errorf(" name and email are required fields")
-	}
+	// // Validate the incoming request data
+	// if req.Name == "" || req.Email == "" {
+	// 	return model.User{}, fmt.Errorf(" name and email are required fields")
+	// }
 
-	// Map the request fields to the User model
 	user := model.User{
 		Name:     req.Name,
 		Email:    req.Email,
@@ -39,11 +37,8 @@ func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, er
 	// Call the service layer to create the user in the database
 	createdUser, err := service.CreateUser(user)
 	if err != nil {
-		// Handle specific errors if needed
-		log.Printf(" failed to create user: %v\n", err)
-		return model.User{}, fmt.Errorf(" failed to create user: %w", err)
+		return model.User{}, fmt.Errorf(" failed to create user %w", err)
 	}
-
 	return createdUser, nil
 }
 

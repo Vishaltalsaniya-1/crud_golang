@@ -82,14 +82,16 @@ func (uc *UserController) GetAllUsers(c echo.Context) error {
 
 	pageSize := c.QueryParam("per_page")
 	pageSizeInt, err := strconv.Atoi(pageSize)
-	if err != nil || pageSizeInt <= 0 {
-		pageSizeInt = 10 // Default page size
+	if pageSize == "-1" {
+		pageSizeInt = -1 
+	} else if err != nil || pageSizeInt <= 0 {
+		pageSizeInt = 10 
 	}
 
 	pageNo := c.QueryParam("page_no")
 	pageNoInt, err := strconv.Atoi(pageNo)
 	if err != nil || pageNoInt <= 0 {
-		pageNoInt = 1 // Default page number
+		pageNoInt = 1 
 	}
 
 	order := c.QueryParam("order")
