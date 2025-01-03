@@ -112,7 +112,7 @@ func ExistsTable(db *sql.DB) error {
 	_, err := db.Exec(createTableSQL)
 	if err != nil {
 		log.Printf("Error user table%v\n", err)
-		return fmt.Errorf("faile the create table:%v", err)
+		return fmt.Errorf("failed to create table:%v", err)
 
 	}
 	return nil

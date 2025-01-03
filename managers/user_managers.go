@@ -69,7 +69,7 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 func (um *UserManager) DeleteUser(id string) error {
 	err := service.DeleteUser(id)
 	if err != nil {
-		return fmt.Errorf(" failed to delete user: %v", err)
+		return fmt.Errorf(" failed to delete user")
 	}
 
 	return nil
@@ -91,7 +91,7 @@ func (um *UserManager) GetAllUsers(pageSize int, pageNo int, subject string, ord
 func (um *UserManager) GetUserByID(id string) (model.User, error) {
 	user, err := service.GetUserByID(id) // Updated method call
 	if err != nil {
-		return model.User{}, fmt.Errorf(" failed to fetch user:")
+		return model.User{}, fmt.Errorf(" failed to fetch user:%v",err)
 	}
 	return user, nil
 }
