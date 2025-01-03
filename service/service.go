@@ -46,7 +46,8 @@ func CreateUser(user model.User) (model.User, error) {
 		// Insert into MongoDB
 		_, err = mongoCollection.InsertOne(context.Background(), mongoUser)
 		if err != nil {
-			return model.User{}, fmt.Errorf(" failed to create user in MongoDB: %v", err)
+			log.Printf("Failed to create user in MongoDB: %v", err)
+			return model.User{}, fmt.Errorf("database error")
 		}
 
 		log.Println(" User successfully created in MongoDB")
@@ -86,7 +87,9 @@ func CreateUser(user model.User) (model.User, error) {
 		pq.Array(&subjects),
 	)
 	if err != nil {
-		return model.User{}, err
+		log.Printf("Error inserting user into PostgreSQL: %v", err)
+
+		return model.User{}, fmt.Errorf("database error")
 	}
 	// if err != nil {
 	// 	log.Printf(" Error inserting user into PostgreSQL: %v\n", err)
@@ -111,7 +114,7 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 		mongoClient, err := db.GetMongoDB()
 		if err != nil {
 			log.Printf(" MongoDB initialization error: %v\n", err)
-			return model.User{}, fmt.Errorf("MongoDB is not initialized: %v", err)
+			return model.User{}, fmt.Errorf("MongoDB is not initialized: ")
 		}
 
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
@@ -143,7 +146,7 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 		err = mongoCollection.FindOne(context.Background(), filter).Decode(&updatedUser)
 		if err != nil {
 			log.Printf(" Failed to fetch updated user: %v\n", err)
-			return model.User{}, fmt.Errorf(" failed to fetch updated user from MongoDB: %v", err)
+			return model.User{}, fmt.Errorf(" failed to fetch updated user from MongoDB ")
 		}
 
 		log.Println(" User successfully updated in MongoDB")
@@ -198,7 +201,7 @@ func DeleteUser(id string) error {
 		result, err := mongoCollection.DeleteOne(context.Background(), filter)
 		if err != nil {
 			log.Printf(" MongoDB deletion error: %v\n", err)
-			return fmt.Errorf(" failed to delete user from MongoDB: %v", err)
+			return fmt.Errorf(" failed to delete user from MongoDB")
 		}
 
 		if result.DeletedCount == 0 {
@@ -371,7 +374,7 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 		WHERE $1 = ANY(subjects) OR $1 = ''`
 	err = db.QueryRow(countQuery, subject).Scan(&totalDocuments)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf("failed to count total users: %v", err)
+		return nil, 0, 0, fmt.Errorf("failed to count total users: ")
 	}
 
 	lastPage := 1
@@ -392,8 +395,8 @@ func GetUserByID(id string) (model.User, error) {
 		mongoClient, err := db.GetMongoDB()
 
 		if err != nil {
-			log.Printf(" MongoDB initialization error: %v\n", err)
-			return model.User{}, fmt.Errorf(" MongoDB is not initialized: %v", err)
+			// log.Printf(" MongoDB initialization error: %v\n", err)
+			return model.User{}, fmt.Errorf(" MongoDB is not initialized: ")
 		}
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
 		var user model.User
@@ -415,7 +418,7 @@ func GetUserByID(id string) (model.User, error) {
 		&user.Id, &user.Name, &user.Email, pq.Array(&subjects))
 
 	if err != nil {
-		return model.User{}, fmt.Errorf("user not found in PostgreSQL: %v", err)
+		return model.User{},fmt.Errorf("user not found in PostgreSQL%v\n:",err)
 	}
 	user.Subjects = subjects
 	return user, nil

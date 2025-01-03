@@ -25,7 +25,6 @@ func (uc *UserController) CreateUser(c echo.Context) error {
 
 	var req request.CreateUserRequest
 
-	// Bind request body to CreateUserRequest
 	if err := c.Bind(&req); err != nil {
 		return c.JSON(http.StatusBadRequest, map[string]string{"error": "Invalid request payload"})
 	}

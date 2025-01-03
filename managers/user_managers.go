@@ -5,7 +5,6 @@ import (
 	"fitness-api/request"
 	"fitness-api/service"
 	"fmt"
-	"log"
 )
 
 type UserManager struct {
@@ -38,7 +37,7 @@ func (um *UserManager) CreateUser(req request.CreateUserRequest) (model.User, er
 	// Call the service layer to create the user in the database
 	createdUser, err := service.CreateUser(user)
 	if err != nil {
-		log.Printf("error creating user: %v", err)
+
 		return model.User{}, fmt.Errorf("error unable to create user please try agan ")
 	}
 	return createdUser, nil
@@ -58,10 +57,9 @@ func (um *UserManager) UpdateUser(id string, req request.UpdateUserRequest) (mod
 		Subjects: req.Subjects,
 	}
 
-	
 	updatedUser, err := service.UpdateUser(user, id)
 	if err != nil {
-		return model.User{}, fmt.Errorf(" failed to update user: %v", err)
+		return model.User{}, fmt.Errorf(" failed to update user: ")
 	}
 
 	return updatedUser, nil
@@ -83,7 +81,7 @@ func (um *UserManager) GetAllUsers(pageSize int, pageNo int, subject string, ord
 	// Call service with pagination arguments
 	users, lastPage, totalDocuments, err := service.GetAllUsers(pageSize, pageNo, subject, order, orderby)
 	if err != nil {
-		return nil, 0, 0, fmt.Errorf(" failed to fetch users: %v", err)
+		return nil, 0, 0, fmt.Errorf(" failed to fetch users: ")
 	}
 	return users, lastPage, totalDocuments, nil
 }
@@ -93,7 +91,7 @@ func (um *UserManager) GetAllUsers(pageSize int, pageNo int, subject string, ord
 func (um *UserManager) GetUserByID(id string) (model.User, error) {
 	user, err := service.GetUserByID(id) // Updated method call
 	if err != nil {
-		return model.User{}, fmt.Errorf(" failed to fetch user: %v", err)
+		return model.User{}, fmt.Errorf(" failed to fetch user:")
 	}
 	return user, nil
 }

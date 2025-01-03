@@ -21,14 +21,14 @@ func main() {
 	}
 
 	if flagConfig.FlagValue == "TRUE" {
-		// Initialize MongoDB using MongoConfig
+		
 		fmt.Println("MongoDB URL:", flagConfig.FlagValue)
 		if err := db.InitMongoDB(); err != nil {
 			log.Fatalf("Failed to initialize MongoDB: %v", err)
 		}
 		fmt.Println("MongoDB Initialized")
 	} else {
-		// Initialize PostgreSQL
+
 		if err := db.InitPostgresDB(); err != nil {
 			log.Fatalf("Failed to initialize PostgreSQL: %v", err)
 		}
