@@ -18,9 +18,8 @@ var (
 	mongoDB    *mongo.Client
 )
 
-// initPostgresDB initializes PostgreSQL connection
 func InitPostgresDB() error {
-	// Load environment variables
+	
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -56,9 +55,9 @@ func InitPostgresDB() error {
 	return nil
 }
 
-// initMongoDB initializes MongoDB connection
+
 func InitMongoDB() error {
-	// Load environment variables
+	
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -85,7 +84,6 @@ func InitMongoDB() error {
 	return nil
 }
 
-// GetMongoDB returns the global MongoDB client
 func GetMongoDB() (*mongo.Client, error) {
 	if mongoDB == nil {
 		return nil, fmt.Errorf("MongoDB client is not initialized")
@@ -93,7 +91,7 @@ func GetMongoDB() (*mongo.Client, error) {
 	return mongoDB, nil
 }
 
-// GetPostgresDB returns the PostgreSQL connection
+
 func GetPostgresDB() *sql.DB {
 	return postgresDB
 }
@@ -101,14 +99,16 @@ func GetPostgresDB() *sql.DB {
 func ExistsTable(db *sql.DB) error {
 
 	createTableSQL := `
-	CREATE TABLE IF NOT EXISTS users (
-		id SERIAL PRIMARY KEY,
-		name VARCHAR(100),
-		email VARCHAR(100) UNIQUE NOT NULL,
-		subjects TEXT[]
-	);
-	`
-
+	 CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100),
+        email VARCHAR(100) UNIQUE NOT NULL,
+        subjects TEXT[],
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        deleted_at TIMESTAMP
+    );
+    `
 	_, err := db.Exec(createTableSQL)
 	if err != nil {
 		log.Printf("Error user table%v\n", err)

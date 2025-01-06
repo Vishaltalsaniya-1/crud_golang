@@ -1,22 +1,11 @@
 package request
 
-// CreateUserRequest defines the structure of the incoming request to create a user.
-type CreateUserRequest struct {
-	Name  string `json:"name" bson:"name" validate:"required,min=3"`
-	Email string `json:"email" bson:"email" validate:"required,email"`
-	//Flag     string   `json:"flag"`
-	Subjects []string `json:"subjects" bson:"subjects"`
-}
+import "time"
 
-// // UpdateUserRequest defines the structure for updating user data.
-// type UpdateUserRequest struct {
-// 	Name     *string  `json:"name" `    // Optional field
-// 	Email    *string  `json:"email"`    // Optional field
-// 	Subjects []string `json:"subjects"` // Optional field
-// 	//	Flag     string   `json:"flag"`     // "true" for MongoDB, "false" for PostgreSQL
-// }
-type UpdateUserRequest struct {
-	Name     *string  `json:"name,omitempty"`
-	Email    *string  `json:"email,omitempty"`
-	Subjects []string `json:"subjects,omitempty"`
+type UserRequest struct {
+	Name      string     `json:"name" bson:"name" `
+	Email     string     `json:"email" bson:"email" validate:"required,email"`
+	Subjects  []string   `json:"subjects" bson:"subjects"`
+	CreatedAt *time.Time `json:"created_at" gorm:"column:created_at;default:current_timestamp" bson:"created_at,omitempty"`
+	UpdatedAt *time.Time `json:"updated_at" gorm:"column:updated_at;default:current_timestamp" bson:"updated_at,omitempty"`
 }

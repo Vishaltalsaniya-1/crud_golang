@@ -8,22 +8,23 @@ import (
 	"fitness-api/model"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-// CreateUser inserts a new user into both PostgreSQL and MongoDB
 func CreateUser(user model.User) (model.User, error) {
 	flagConfig, err := config.InitConfig()
 	if err != nil {
 		log.Fatalf("Error loading flag config: %v", err)
 	}
 	if flagConfig.FlagValue == "TRUE" {
-		// MongoDB logic
-		log.Println(" MongoDB flag is true, processing user creation in MongoDB")
+
+		log.Println("MongoDB flag is true, processing user creation in MongoDB")
 
 		mongoClient, err := db.GetMongoDB()
 		if err != nil {
@@ -32,22 +33,39 @@ func CreateUser(user model.User) (model.User, error) {
 		}
 
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
-		var id = uuid.New().String()
-		// Generate a new unique _id
-		mongoUser := bson.M{
-			"_id":      id,
-			"name":     user.Name,
-			"email":    user.Email,
-			"subjects": user.Subjects,
+		var existingUser model.User
+		err = mongoCollection.FindOne(context.Background(), bson.M{"email": user.Email}).Decode(&existingUser)
+		if err != nil && err != mongo.ErrNoDocuments {
+			log.Printf("MongoDB error checking user existence: %v\n", err)
+			return model.User{}, fmt.Errorf("failed to check user existence: %v", err)
 		}
 
-		log.Printf(" Inserting user into MongoDB: %+v\n", mongoUser)
+		if existingUser.Id != "" {
+			log.Printf("Duplicate email found: %s\n", user.Email)
 
-		// Insert into MongoDB
+			return model.User{}, fmt.Errorf("email %s already exists", user.Email)
+		}
+		var id = uuid.New().String()
+
+		mongoUser := bson.M{
+			"_id":        id,
+			"name":       user.Name,
+			"email":      user.Email,
+			"subjects":   user.Subjects,
+			"created_at": user.CreatedAt,
+			"updated_at": user.UpdatedAt,
+			"deleted_at": user.DeletedAt,
+		}
+
+		log.Printf("Inserting user into MongoDB: %+v\n", mongoUser)
+		log.Printf("Database: %s, Collection:, Inserted User: %+v", mongoClient.Database("fitness").Name(), mongoUser)
+
+
 		_, err = mongoCollection.InsertOne(context.Background(), mongoUser)
 		if err != nil {
 			log.Printf("Failed to create user in MongoDB: %v", err)
 			return model.User{}, fmt.Errorf("database error")
+
 		}
 
 		log.Println(" User successfully created in MongoDB")
@@ -58,49 +76,56 @@ func CreateUser(user model.User) (model.User, error) {
 	log.Println(" PostgreSQL flag is false, processing user creation in PostgreSQL")
 	postgresDB := db.GetPostgresDB()
 
-	// Check if the user already exists by email or name
 	var existingUser model.User
-	err = postgresDB.QueryRow("SELECT id FROM users WHERE email = $1 OR name = $2 LIMIT 1", user.Email, user.Name).Scan(&existingUser.Id)
+	err = postgresDB.QueryRow("SELECT id FROM users WHERE email = $1 LIMIT 1", user.Email).Scan(&existingUser.Id)
 	if err != nil {
-		//log.Printf(" Error checking user existence in PostgreSQL: %v\n", err)
-		return model.User{}, fmt.Errorf(" failed to check user existence: %v", err)
+		if err == sql.ErrNoRows {
+		} else {
+			return model.User{}, fmt.Errorf("failed to check user existence: %v", err)
+		}
+	} else {
+		return model.User{}, fmt.Errorf("email %s already exists", user.Email)
 	}
-
-	// Insert the new user into PostgreSQL
 	sqlStatement := `
-        INSERT INTO users (name, email, subjects)
-        VALUES ($1, $2, $3)
-        RETURNING id, name, email, subjects`
+		INSERT INTO users (name, email, subjects, created_at, updated_at, deleted_at)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, name, email, subjects, created_at, updated_at, deleted_at`
 
 	var createdUser model.User
-	var subjects []string
+
 
 	err = postgresDB.QueryRow(
 		sqlStatement,
 		user.Name,
 		user.Email,
 		pq.Array(user.Subjects),
+		user.CreatedAt,
+		user.UpdatedAt,
+		user.DeletedAt,
 	).Scan(
 		&createdUser.Id,
 		&createdUser.Name,
 		&createdUser.Email,
-		pq.Array(&subjects),
+		pq.Array(&createdUser.Subjects),
+		&createdUser.CreatedAt,
+		&createdUser.UpdatedAt,
+		&createdUser.DeletedAt,
 	)
 	if err != nil {
-		log.Printf("Error inserting user into PostgreSQL: %v", err)
-
-		return model.User{}, fmt.Errorf("database error")
+		return model.User{}, fmt.Errorf("PostgreSQL insertion error: %v", err)
 	}
-	// if err != nil {
-	// 	log.Printf(" Error inserting user into PostgreSQL: %v\n", err)
-	// 	return model.User{}, fmt.Errorf(" failed to create user in PostgreSQL: %v", err)
-	// }
-	createdUser.Subjects = subjects
 
-	log.Println(" User successfully created in PostgreSQL")
+	// if err != nil {
+	// 	log.Printf("Error inserting user into PostgreSQL: %v\n", err)
+	// 	return model.User{}, fmt.Errorf("failed to create user in PostgreSQL: %v", err)
+	// }
+
+	// Update the subjects field after retrieval from the database
+	// createdUser.Subjects = subjects
+
+	// log.Println("User successfully created in PostgreSQL")
 	return createdUser, nil
 }
-
 func UpdateUser(user model.User, id string) (model.User, error) {
 	flagConfig, err := config.InitConfig()
 	if err != nil {
@@ -108,12 +133,12 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 	}
 
 	if flagConfig.FlagValue == "TRUE" {
-		// MongoDB logic
-		log.Println(" MongoDB flag is true, processing user creation in MongoDB")
+
+		log.Println("MongoDB flag is true, processing user creation in MongoDB")
 
 		mongoClient, err := db.GetMongoDB()
 		if err != nil {
-			log.Printf(" MongoDB initialization error: %v\n", err)
+			log.Printf("MongoDB initialization error: %v\n", err)
 			return model.User{}, fmt.Errorf("MongoDB is not initialized: ")
 		}
 
@@ -124,6 +149,9 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 				{Key: "name", Value: user.Name},
 				{Key: "email", Value: user.Email},
 				{Key: "subjects", Value: user.Subjects},
+				{Key: "created_at", Value: user.CreatedAt},
+				{Key: "updated_at", Value: user.UpdatedAt},
+				{Key: "deleted_at", Value: user.DeletedAt},
 			}},
 		}
 
@@ -134,100 +162,97 @@ func UpdateUser(user model.User, id string) (model.User, error) {
 			&options.UpdateOptions{Upsert: &[]bool{false}[0]},
 		)
 		if err != nil {
-			log.Printf(" MongoDB update error: %v\n", err)
-			return model.User{}, fmt.Errorf(" failed to update user in MongoDB: %v", err)
+			log.Printf("MongoDB update error: %v\n", err)
+			return model.User{}, fmt.Errorf("failed to update user in MongoDB: %v", err)
 		}
 		if result.MatchedCount == 0 {
 			return model.User{}, fmt.Errorf("no user found with the given ID: %s", id)
 		}
-		log.Printf(" Update result: %+v\n", result)
+		log.Printf("Update result: %+v\n", result)
 
 		var updatedUser model.User
 		err = mongoCollection.FindOne(context.Background(), filter).Decode(&updatedUser)
 		if err != nil {
-			log.Printf(" Failed to fetch updated user: %v\n", err)
-			return model.User{}, fmt.Errorf(" failed to fetch updated user from MongoDB ")
+			log.Printf("Failed to fetch updated user: %v\n", err)
+			return model.User{}, fmt.Errorf("failed to fetch updated user from MongoDB ")
 		}
 
-		log.Println(" User successfully updated in MongoDB")
+		log.Println("User successfully updated in MongoDB")
 		return updatedUser, nil
 	}
 
 	pgDB := db.GetPostgresDB()
-
 	sqlStatement := `
-            UPDATE users 
-            SET name = $1, email = $2, subjects = $3
-            WHERE id = $4
-            RETURNING id, name, email, subjects`
+        UPDATE users
+        SET name = $1, email = $2, subjects = $3, updated_at = $4
+        WHERE id = $5
+        RETURNING id, name, email, subjects, created_at, updated_at, deleted_at`
+
 	log.Printf("Updating user: ID: %s, Name: %s, Email: %s, Subjects: %v", id, user.Name, user.Email, user.Subjects)
 
 	var updatedUser model.User
 	var subjects pq.StringArray
 
-	err = pgDB.QueryRow(sqlStatement, user.Name, user.Email, pq.Array(user.Subjects), id).Scan(
-		&updatedUser.Id, &updatedUser.Name, &updatedUser.Email, &subjects)
+	err = pgDB.QueryRow(sqlStatement, user.Name, user.Email, pq.Array(user.Subjects), user.UpdatedAt, id).Scan(
+		&updatedUser.Id, &updatedUser.Name, &updatedUser.Email, &subjects, &updatedUser.CreatedAt, &updatedUser.UpdatedAt, &updatedUser.DeletedAt)
 
 	if err != nil {
-		return model.User{}, err
+		if err == sql.ErrNoRows {
+			return model.User{}, fmt.Errorf("no user found with the given ID")
+		}
+		log.Printf("PostgreSQL update error: %v\n", err)
+		return model.User{}, fmt.Errorf("failed to update user in PostgreSQL: %v", err)
 	}
-	// if err != nil {
-	// 	return model.User{}, fmt.Errorf(" failed to update user in PostgreSQL: %v", err)
-	// }
 
 	updatedUser.Subjects = subjects
 	return updatedUser, nil
-
 }
-
-// DeleteUser deletes a user from PostgreSQL or MongoDB based on the flag
 func DeleteUser(id string) error {
 	flagConfig, err := config.InitConfig()
 	if err != nil {
 		log.Fatalf("Error loading flag config: %v", err)
 	}
 	if flagConfig.FlagValue == "TRUE" {
-		log.Println(" MongoDB flag is true, processing user creation in MongoDB")
+		log.Println("MongoDB flag is true, processing user creation in MongoDB")
 
 		mongoClient, err := db.GetMongoDB()
 
 		if err != nil {
-			log.Printf(" MongoDB initialization error: %v\n", err)
-			return fmt.Errorf(" MongoDB is not initialized: %v", err)
+			log.Printf("MongoDB initialization error: %v\n", err)
+			return fmt.Errorf("MongoDB is not initialized: %v", err)
 		}
 
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
 		filter := bson.D{{Key: "_id", Value: id}}
 		result, err := mongoCollection.DeleteOne(context.Background(), filter)
 		if err != nil {
-			log.Printf(" MongoDB deletion error: %v\n", err)
-			return fmt.Errorf(" failed to delete user from MongoDB")
+			log.Printf("MongoDB deletion error: %v\n", err)
+			return fmt.Errorf("failed to delete user from MongoDB")
 		}
 
 		if result.DeletedCount == 0 {
-			return fmt.Errorf(" no user found with id %s", id)
+			return fmt.Errorf("no user found with id %s", id)
 		}
 
-		log.Println(" User successfully deleted from MongoDB")
+		log.Println("User successfully deleted from MongoDB")
 		return nil
 	}
 
 	db := db.GetPostgresDB()
 	sqlStatement := `DELETE FROM users WHERE id = $1`
 
-	// Execute the DELETE statement
 	result, err := db.Exec(sqlStatement, id)
 	if err != nil {
-		return fmt.Errorf(" failed to delete user: %v", err)
+
+		return fmt.Errorf("failed to delete user: %v", err)
 	}
 
-	// Check if any rows were affected (i.e., if the user was found and deleted)
 	rowsAffected, err := result.RowsAffected()
 	if err != nil || rowsAffected == 0 {
-		return fmt.Errorf(" no user found with id %s", id)
+		return fmt.Errorf("no user found with id %s", id)
 	}
 
-	log.Println(" User successfully deleted from PostgreSQL")
+	log.Println("User successfully deleted from PostgreSQL")
 	return nil
 }
 
@@ -237,11 +262,11 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 		log.Fatalf("Error loading flag config: %v", err)
 	}
 	if flagConfig.FlagValue == "TRUE" {
-		log.Println(" MongoDB flag is true, fetching users from in MongoDB")
+		log.Println("MongoDB flag is true, fetching users from in MongoDB")
 		mongoClient, err := db.GetMongoDB()
 		if err != nil {
-			log.Printf(" MongoDB initialization error: %v\n", err)
-			return nil, 0, 0, fmt.Errorf(" MongoDB is not initialized: %v", err)
+			log.Printf("MongoDB initialization error: %v\n", err)
+			return nil, 0, 0, fmt.Errorf("MongoDB is not initialized: %v", err)
 		}
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
 
@@ -252,7 +277,7 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 
 		totalDocuments, err := mongoCollection.CountDocuments(context.Background(), filter)
 		if err != nil {
-			log.Printf(" MongoDB count error: %v\n", err)
+			log.Printf("MongoDB count error: %v\n", err)
 			return nil, 0, 0, fmt.Errorf("failed to count users: %v", err)
 		}
 
@@ -285,24 +310,23 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 
 		cursor, err := mongoCollection.Find(context.Background(), filter, opts)
 		if err != nil {
-			log.Printf(" MongoDB find error: %v\n", err)
+			log.Printf("MongoDB find error: %v\n", err)
 			return nil, 0, 0, fmt.Errorf("failed to fetch users: %v", err)
 		}
 		defer cursor.Close(context.Background())
 
-		// Decode results
 		var users []model.User
 		for cursor.Next(context.Background()) {
 			var user model.User
 			if err := cursor.Decode(&user); err != nil {
-				log.Printf(" MongoDB decode error: %v\n", err)
+				log.Printf("MongoDB decode error: %v\n", err)
 				return nil, 0, 0, fmt.Errorf("failed to decode user data: %v", err)
 			}
 			users = append(users, user)
 		}
 
 		if err := cursor.Err(); err != nil {
-			log.Printf(" MongoDB cursor iteration error: %v\n", err)
+			log.Printf("MongoDB cursor iteration error: %v\n", err)
 			return nil, 0, 0, fmt.Errorf("error iterating MongoDB cursor: %v", err)
 		}
 
@@ -313,13 +337,12 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 
 	db := db.GetPostgresDB()
 
-	// Validate `orderby` and `order` fields to prevent SQL injection
 	validColumns := map[string]bool{"id": true, "name": true, "email": true}
 	if !validColumns[orderby] {
-		orderby = "id" // Default column
+		orderby = "id"
 	}
 	if order != "ASC" && order != "DESC" {
-		order = "DESC" // Default sorting order
+		order = "DESC"
 	}
 
 	var sqlStatement string
@@ -327,7 +350,7 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 
 	if pageSize == -1 {
 		sqlStatement = fmt.Sprintf(`
-			SELECT id, name, email, subjects
+			SELECT id, name, email, subjects,created_at, updated_at, deleted_at
 			FROM users
 			WHERE $1 = ANY(subjects) OR $1 = ''
 			ORDER BY %s %s`, orderby, order)
@@ -336,7 +359,7 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 	} else {
 		offset := (pageNo - 1) * pageSize
 		sqlStatement = fmt.Sprintf(`
-			SELECT id, name, email, subjects
+			SELECT id, name, email, subjects,created_at, updated_at, deleted_at
 			FROM users
 			WHERE $1 = ANY(subjects) OR $1 = ''
 			ORDER BY %s %s
@@ -354,11 +377,14 @@ func GetAllUsers(pageSize int, pageNo int, subject string, order string, orderby
 	for rows.Next() {
 		var user model.User
 		var subjects []string
-
-		err := rows.Scan(&user.Id, &user.Name, &user.Email, pq.Array(&subjects))
+		var createdAt, updatedAt, deletedAt *time.Time
+		err := rows.Scan(&user.Id, &user.Name, &user.Email, pq.Array(&subjects), &createdAt, &updatedAt, &deletedAt)
 		if err != nil {
 			return nil, 0, 0, fmt.Errorf("failed to scan user: %v", err)
 		}
+		user.CreatedAt = createdAt
+		user.UpdatedAt = updatedAt
+		user.DeletedAt = deletedAt
 		user.Subjects = subjects
 		users = append(users, user)
 	}
@@ -390,36 +416,48 @@ func GetUserByID(id string) (model.User, error) {
 	if err != nil {
 		log.Fatalf("Error loading flag config: %v", err)
 	}
-	if flagConfig.FlagValue == "TRUE" {
-		log.Println(" MongoDB flag is true, fetching users from in MongoDB")
-		mongoClient, err := db.GetMongoDB()
 
+	if flagConfig.FlagValue == "TRUE" {
+		log.Println("MongoDB flag is true, fetching user from MongoDB")
+		mongoClient, err := db.GetMongoDB()
 		if err != nil {
-			// log.Printf(" MongoDB initialization error: %v\n", err)
-			return model.User{}, fmt.Errorf(" MongoDB is not initialized: ")
+			return model.User{}, fmt.Errorf("MongoDB is not initialized")
 		}
+
 		mongoCollection := mongoClient.Database("fitness").Collection("users")
 		var user model.User
 		err = mongoCollection.FindOne(context.Background(), bson.D{{Key: "_id", Value: id}}).Decode(&user)
 		if err != nil {
-			log.Printf(" MongoDB error: %v", err)
-			return model.User{}, fmt.Errorf(" user not found in MongoDB: %v", err)
+			log.Printf("MongoDB error: %v", err)
+			return model.User{}, fmt.Errorf("user not found in MongoDB")
 		}
 		return user, nil
 	}
-	// PostgreSQL logic
+
 	db := db.GetPostgresDB()
 
-	sqlStatement := `SELECT id, name, email, subjects FROM users WHERE id = $1`
+	sqlStatement := `
+		SELECT id, name, email, subjects, created_at, updated_at, deleted_at 
+		FROM users 
+		WHERE id = $1`
 
 	var user model.User
 	var subjects []string
-	err = db.QueryRow(sqlStatement, id).Scan(
-		&user.Id, &user.Name, &user.Email, pq.Array(&subjects))
+	var createdAt, updatedAt, deletedAt *time.Time
 
+	err = db.QueryRow(sqlStatement, id).Scan(
+		&user.Id, &user.Name, &user.Email, pq.Array(&subjects), &createdAt, &updatedAt, &deletedAt)
 	if err != nil {
-		return model.User{},fmt.Errorf("user not found in PostgreSQL%v\n:",err)
+		if err == sql.ErrNoRows {
+			return model.User{}, fmt.Errorf("user not found")
+		}
+		log.Printf("PostgreSQL query error: %v\n", err)
+		return model.User{}, err
 	}
+
 	user.Subjects = subjects
+	user.CreatedAt = createdAt
+	user.UpdatedAt = updatedAt
+	user.DeletedAt = deletedAt
 	return user, nil
 }
