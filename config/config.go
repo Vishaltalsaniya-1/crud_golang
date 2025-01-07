@@ -6,7 +6,7 @@ import (
 )
 
 type Flag struct {
-	FlagValue string `env:"FLAG_VALUE" envDefault:"FALSE"`
+	FlagValue string `env:"FLAG_VALUE" envDefault:"TRUE"`
 }
 
 func InitConfig() (*Flag, error) {

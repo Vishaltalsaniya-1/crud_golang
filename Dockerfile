@@ -1,31 +1,34 @@
-# Use the official Golang image
-FROM golang:1.23-alpine
+# Stage 1: Build the Go application
+FROM golang:1.23-alpine AS builder
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Copy go.mod and go.sum files for dependency management
-COPY go.mod go.sum ./
+# Install Git to clone the repository
+RUN apk add --no-cache git
+
+# Clone the repository (replace with your repository URL)
+RUN git clone https://github.com/Vishaltalsaniya-1/crud_golang.git .
 
 # Download dependencies
-RUN go mod tidy
-
-# Copy the entire project into the container
-COPY . .
+RUN go mod download
 
 # Build the Go app
 RUN go build -o main .
 
-# Use a minimal base image (Alpine) for the final image
+# Stage 2: Create a minimal runtime image
 FROM alpine:latest
 
-#  Install dependencies for PostgreSQL and MongoDB client if needed
+# Install certificates for secure connections (e.g., to databases)
 RUN apk --no-cache add ca-certificates
 
-#  Copy the Go application from the builder stage
-COPY --from=builder /app/main .
+# Copy the Go application binary from the builder stage
+COPY --from=builder /app/main /app/main
 
-# Expose port 8081 for the app
+# Set the working directory in the runtime container
+WORKDIR /app
+
+# Expose the application port (update as needed)
 EXPOSE 8081
 
 # Command to run the app

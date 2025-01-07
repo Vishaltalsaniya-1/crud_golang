@@ -12,7 +12,7 @@ services:
     image: rabbitmq:3.13-management-alpine
     ports:
       - "5672:5672"
-      - "15672:15672"  # Web management UI
+      - "15672:15672"  
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
@@ -90,6 +90,22 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+  myapp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - mongodb
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=fitness
+      - MONGO_URI=mongodb://mongodb:27017
 
 volumes:
   redis_data:
