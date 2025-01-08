@@ -1,44 +1,6 @@
 version: '3'
 
 services:
-  redis:
-    image: redis:7.2.4-alpine3.19
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    ports:
-      - "5672:5672"
-      - "15672:15672"  
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-
-  mysql:
-    image: mysql:8.0.36
-    ports:
-      - "3306:3306"
-    environment:
-      MYSQL_ROOT_PASSWORD: TigerRoot1234
-      MYSQL_DATABASE: rtcdb
-      MYSQL_USER: siprtc
-      MYSQL_PASSWORD: Tiger1234
-    volumes:
-      - mysql_data:/var/lib/mysql
-      
-  phpmyadmin:
-    image: phpmyadmin:5.2.1
-    links:
-      - mysql
-    ports:
-      - "8080:80"
-    environment:
-      PMA_HOST: mysql
-      PMA_PORT: 3306
-      MYSQL_ROOT_PASSWORD: TigerRoot1234
-  
   mongodb:
     image: mongo
     container_name: mongodb
@@ -46,40 +8,7 @@ services:
       - "27017:27017"
     volumes:
       - mongodb_data:/data/db
-    # environment:
-    #   MONGO_INITDB_ROOT_USERNAME: root
-    #   MONGO_INITDB_ROOT_PASSWORD: example
   
-  nsqlookupd:
-    image: nsqio/nsq
-    command: /nsqlookupd
-    ports:
-      - "4160:4160"
-      - "4161:4161"
-    volumes:
-      - ./nsqlookupd/data:/data
-
-  nsqd:
-    image: nsqio/nsq
-    command: /nsqd --lookupd-tcp-address=nsqlookupd:4160
-    ports:
-      - "4150:4150"
-      - "4151:4151"
-    volumes:
-      - ./nsqd/data:/data
-    depends_on:
-      - nsqlookupd
-
-  nsqadmin:
-    image: nsqio/nsq
-    command: /nsqadmin --lookupd-http-address=nsqlookupd:4161
-    ports:
-      - "4171:4171"
-    depends_on:
-      - nsqlookupd
-    environment:
-      - NSQADMIN_HTTP_ADDRESS=0.0.0.0:4171
-
   postgres:
     image: postgres:15.3-alpine
     environment:
@@ -90,28 +19,26 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
   myapp:
     build:
       context: .
       dockerfile: Dockerfile
+    container_name: myapp
     ports:
       - "8081:8081"
     depends_on:
       - postgres
       - mongodb
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_PASSWORD=postgres
-      - DB_NAME=fitness
-      - MONGO_URI=mongodb://mongodb:27017
+      DB_HOST: postgres      # Use service name instead of localhost
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: fitness
+      MONGO_URI: mongodb://mongodb:27017
+  
 
 volumes:
-  redis_data:
-  rabbitmq_data:
-  mysql_data:
-  mongodb_data:
-  nsqlookupd_data:
-  nsqd_data:
-  postgres_data:
+    mongodb_data:
+    postgres_data:

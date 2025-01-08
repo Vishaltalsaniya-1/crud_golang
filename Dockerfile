@@ -1,35 +1,23 @@
-# Stage 1: Build the Go application
-FROM golang:1.23-alpine AS builder
+# Use the official Golang image
+FROM golang:1.23-alpine
 
 # Set the working directory inside the container
 WORKDIR /app
 
-# Install Git to clone the repository
-RUN apk add --no-cache git
+# Copy Go modules and dependencies files
+COPY go.mod go.sum ./
 
-# Clone the repository (replace with your repository URL)
-RUN git clone https://github.com/Vishaltalsaniya-1/crud_golang.git .
-
-# Download dependencies
+# Download Go module dependencies
 RUN go mod download
 
-# Build the Go app
+# Copy the rest of the application source code
+COPY . .
+
+# Build the Go application
 RUN go build -o main .
 
-# Stage 2: Create a minimal runtime image
-FROM alpine:latest
-
-# Install certificates for secure connections (e.g., to databases)
-RUN apk --no-cache add ca-certificates
-
-# Copy the Go application binary from the builder stage
-COPY --from=builder /app/main /app/main
-
-# Set the working directory in the runtime container
-WORKDIR /app
-
-# Expose the application port (update as needed)
+# Expose the application port
 EXPOSE 8081
 
-# Command to run the app
+# Run the application
 CMD ["./main"]
