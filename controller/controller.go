@@ -42,7 +42,7 @@ func (uc *UserController) CreateUser(c echo.Context) error {
 		if strings.Contains(err.Error(), "already exists") {
 			return c.JSON(http.StatusConflict, map[string]string{"error": err.Error()})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusCreated, createdUser)
@@ -68,7 +68,7 @@ func (uc *UserController) UpdateUser(c echo.Context) error {
 			})
 		}
 
-		return c.JSON(http.StatusInternalServerError, map[string]string{
+		return c.JSON(http.StatusBadRequest, map[string]string{
 			"error": "An unexpected error occurred while updating the user. Please try again later.",
 		})
 	}
@@ -84,10 +84,10 @@ func (uc *UserController) DeleteUser(c echo.Context) error {
 		if err.Error() == fmt.Sprintf("no user found with id %s", id) {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "User not found"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
-	return c.JSON(http.StatusOK, map[string]string{"message": "User deleted successfully"})
+	return c.JSON(http.StatusNoContent, map[string]string{"message": "User deleted successfully"})
 }
 
 func (uc *UserController) GetAllUsers(c echo.Context) error {
@@ -112,7 +112,7 @@ func (uc *UserController) GetAllUsers(c echo.Context) error {
 
 	users, lastPage, totalDocuments, err := uc.manager.GetAllUsers(pageSizeInt, pageNoInt, subject, order, orderby)
 	if err != nil {
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 	}
 
 	return c.JSON(http.StatusOK, map[string]interface{}{
